@@ -1,9 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Sliders,
   SlidersHorizontal,
   HardDrive,
-  FileCheck,
   Cpu,
   Layers,
   Sparkles,
@@ -11,9 +9,20 @@ import {
   CheckCircle2,
   FolderTree,
   ShieldCheck,
+  GitBranch,
+  Github,
+  ExternalLink,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import { VaultSettings } from '../types/vault';
 import { GoogleSignInButton } from './ui/GoogleSignInButton';
+import { soundFIFO, MALE_JARVIS_VOICES } from '../services/soundEngine';
+import {
+  getStoredGitHubConfig,
+  saveStoredGitHubConfig,
+  verifyGitHubRepo,
+} from '../services/githubService';
 
 interface EngineSettingsProps {
   settings: VaultSettings;
@@ -34,8 +43,48 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
   onGoogleSignOut,
   isSigningIn = false,
 }) => {
+  const [githubConfig, setGithubConfig] = useState(getStoredGitHubConfig);
+  const [githubTesting, setGithubTesting] = useState(false);
+  const [githubMessage, setGithubMessage] = useState<{ text: string; isError: boolean } | null>(
+    null
+  );
+
   const update = (partial: Partial<VaultSettings>) => {
     onUpdateSettings({ ...settings, ...partial });
+  };
+
+  const handleTestGitHub = async () => {
+    if (!githubConfig.token || !githubConfig.repo) {
+      setGithubMessage({
+        text: 'Please enter both a GitHub Personal Access Token and repository (owner/repo).',
+        isError: true,
+      });
+      return;
+    }
+
+    setGithubTesting(true);
+    setGithubMessage(null);
+
+    const result = await verifyGitHubRepo(githubConfig.token, githubConfig.repo);
+    setGithubTesting(false);
+
+    if (result.success) {
+      setGithubMessage({
+        text: result.message || 'Connected successfully to GitHub repository!',
+        isError: false,
+      });
+    } else {
+      setGithubMessage({
+        text: result.message || 'Could not verify GitHub repository.',
+        isError: true,
+      });
+    }
+  };
+
+  const handleUpdateGitHub = (updates: Partial<typeof githubConfig>) => {
+    const updated = { ...githubConfig, ...updates };
+    setGithubConfig(updated);
+    saveStoredGitHubConfig(updated);
   };
 
   return (
@@ -45,11 +94,118 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <SlidersHorizontal className="w-5 h-5 text-red-500" />
-            <span>Vault Engine Configuration</span>
+            <span>Vault Engine & Remote Storage</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Global optimization rules, Google Drive architecture, and batch processing engine.
+            Global optimization rules, GitHub repository sync, Google Drive architecture, and batch processing engine.
           </p>
+        </div>
+      </div>
+
+      {/* GitHub Repository Cloud Sync (Requested Alternative) */}
+      <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+              <Github className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">GitHub Repository Direct Sync</h3>
+                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-bold">
+                  Recommended Remote Storage
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Automatically push optimized website JPGs to your GitHub repository under <code className="text-purple-300">media/[client]/</code> for instant CDN and remote access.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-slate-400">Auto Push to GitHub</span>
+            <input
+              type="checkbox"
+              checked={githubConfig.autoSync}
+              onChange={(e) => handleUpdateGitHub({ autoSync: e.target.checked })}
+              className="w-4 h-4 accent-red-600 rounded cursor-pointer"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-slate-400 text-xs font-medium">
+                GitHub Personal Access Token (PAT)
+              </label>
+              <a
+                href="https://github.com/settings/tokens/new?scopes=repo&description=AMA+Media+Vault"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
+              >
+                <span>Create Token (repo scope)</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            <input
+              type="password"
+              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              value={githubConfig.token}
+              onChange={(e) => handleUpdateGitHub({ token: e.target.value })}
+              className="w-full bg-[#090b0e] border border-white/10 focus:border-purple-500 rounded-xl p-2.5 text-xs text-white font-mono outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-slate-400 block mb-1 text-xs font-medium">
+              Repository (owner/repo)
+            </label>
+            <input
+              type="text"
+              placeholder="username/my-media-vault"
+              value={githubConfig.repo}
+              onChange={(e) => handleUpdateGitHub({ repo: e.target.value })}
+              className="w-full bg-[#090b0e] border border-white/10 focus:border-purple-500 rounded-xl p-2.5 text-xs text-white font-mono outline-none"
+            />
+          </div>
+        </div>
+
+        {githubMessage && (
+          <div
+            className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+              githubMessage.isError
+                ? 'bg-red-500/10 border border-red-500/20 text-red-300'
+                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
+            }`}
+          >
+            {githubMessage.isError ? (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            )}
+            <span>{githubMessage.text}</span>
+          </div>
+        )}
+
+        <div className="pt-1 flex items-center justify-between">
+          <p className="text-[11px] text-slate-500">
+            Files are saved to: <code className="text-slate-400 font-mono">media/jeannie/filename.jpg</code>
+          </p>
+
+          <button
+            onClick={handleTestGitHub}
+            disabled={githubTesting}
+            className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+          >
+            {githubTesting ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <GitBranch className="w-3.5 h-3.5" />
+            )}
+            <span>{githubTesting ? 'Verifying...' : 'Test GitHub Connection'}</span>
+          </button>
         </div>
       </div>
 
@@ -57,7 +213,7 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
       <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
               <HardDrive className="w-5 h-5" />
             </div>
             <div>
@@ -68,214 +224,49 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
             </div>
           </div>
 
-          <div>
-            {accessToken ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Connected</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
-                <span>Authorization Ready</span>
-              </span>
-            )}
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-xs text-slate-400">Auto Sync to Drive</span>
+            <input
+              type="checkbox"
+              checked={settings.autoSyncToDrive}
+              onChange={(e) => update({ autoSyncToDrive: e.target.checked })}
+              className="w-4 h-4 accent-red-600 rounded cursor-pointer"
+            />
+          </label>
         </div>
 
-        <div className="bg-[#090b0e] border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-xs space-y-1">
-            <p className="text-slate-300">
-              {accessToken ? (
-                <>
-                  Authenticated as:{' '}
-                  <strong className="text-white">{currentUserEmail || 'Google User'}</strong>
-                </>
-              ) : (
-                'Sign in with Google to sync client folders and enable live Google Drive uploads.'
-              )}
-            </p>
-            <p className="text-slate-500 text-[11px]">
-              Root storage folder:{' '}
-              <span className="font-mono text-slate-400">/AMA Media Vault</span>
-            </p>
-          </div>
-
-          <div>
-            {accessToken ? (
+        <div className="pt-2">
+          {accessToken ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#090b0e] border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div>
+                  <p className="text-xs font-bold text-white">Google Drive Active & Authenticated</p>
+                  <p className="text-[11px] text-slate-400">{currentUserEmail || 'Session connected'}</p>
+                </div>
+              </div>
               <button
                 onClick={onGoogleSignOut}
-                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition cursor-pointer"
+                className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-semibold transition cursor-pointer"
               >
-                Disconnect Account
+                Disconnect Drive
               </button>
-            ) : (
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#090b0e] border border-white/10 rounded-2xl p-4">
+              <div>
+                <p className="text-xs font-bold text-white">Google Drive Not Connected</p>
+                <p className="text-[11px] text-slate-400">
+                  Connect your Google account to automatically store media in /AMA Media Vault.
+                </p>
+              </div>
               <GoogleSignInButton
                 onClick={onGoogleSignIn}
-                isLoading={isSigningIn}
-                text="Connect Google Drive"
+                isSigningIn={isSigningIn}
+                className="shrink-0"
               />
-            )}
-          </div>
-        </div>
-
-        {/* Drive Architecture Breakdown */}
-        <div className="pt-2">
-          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <FolderTree className="w-3.5 h-3.5 text-red-500" />
-            <span>Automated Folder Hierarchy</span>
-          </h4>
-          <div className="bg-[#090b0e] rounded-xl p-3 font-mono text-[11px] text-slate-300 space-y-1">
-            <p className="text-red-400 font-semibold">AMA Media Vault (Root)</p>
-            <p className="pl-4 text-slate-400">└── Jeannie / [Client Name]</p>
-            <p className="pl-8 text-slate-300">├── Original Uploads (Untouched source files)</p>
-            <p className="pl-8 text-emerald-400 font-medium">├── Website JPG (Resized & compressed JPGs)</p>
-            <p className="pl-8 text-slate-400">└── Archive (Historical / replaced files)</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Conversion & Optimization Settings Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* JPG Quality */}
-        <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-red-500" />
-            <h3 className="text-sm font-bold text-white">JPG Quality</h3>
-          </div>
-          <p className="text-xs text-slate-400">
-            Balancing visual fidelity and file compression for lightning-fast website load times.
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: 0.7, label: '70%', sub: 'Smaller File' },
-              { val: 0.82, label: '82%', sub: 'Recommended' },
-              { val: 0.9, label: '90%', sub: 'High Quality' },
-            ].map((opt) => (
-              <button
-                key={opt.val}
-                onClick={() => update({ jpgQuality: opt.val })}
-                className={`p-3 rounded-2xl border text-center transition cursor-pointer ${
-                  settings.jpgQuality === opt.val
-                    ? 'border-red-500 bg-red-500/10 text-white shadow-lg shadow-red-500/10'
-                    : 'border-white/10 bg-[#090b0e] text-slate-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                <span className="text-base font-bold block">{opt.label}</span>
-                <span className="text-[10px] text-slate-400 block">{opt.sub}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Max Long Edge */}
-        <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-red-500" />
-            <h3 className="text-sm font-bold text-white">Maximum Long Edge</h3>
-          </div>
-          <p className="text-xs text-slate-400">
-            Proportional resize applied to the longest edge. Preserves portrait and landscape aspect ratios without distortion.
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: 1280, label: '1280 px' },
-              { val: 1600, label: '1600 px' },
-              { val: 1920, label: '1920 px (Def)' },
-              { val: 2560, label: '2560 px' },
-              { val: 0, label: 'Original Size' },
-            ].map((opt) => (
-              <button
-                key={opt.val}
-                onClick={() => update({ maxLongEdge: opt.val })}
-                className={`py-2.5 px-2 rounded-2xl border text-center transition cursor-pointer text-xs font-semibold ${
-                  settings.maxLongEdge === opt.val
-                    ? 'border-red-500 bg-red-500/10 text-white shadow-lg shadow-red-500/10'
-                    : 'border-white/10 bg-[#090b0e] text-slate-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Keep Original Uploads */}
-        <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-red-500" />
-              <h3 className="text-sm font-bold text-white">Keep Original Uploads</h3>
             </div>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                settings.keepOriginals
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'bg-white/10 text-slate-400'
-              }`}
-            >
-              {settings.keepOriginals ? 'ON' : 'OFF'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">
-            When ON, untouched raw source files (HEIC, RAW, high-res PNG) are retained in the{' '}
-            <strong className="text-slate-200">Original Uploads</strong> folder.
-          </p>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => update({ keepOriginals: true })}
-              className={`flex-1 py-2.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
-                settings.keepOriginals
-                  ? 'border-red-500 bg-red-500/10 text-white font-semibold'
-                  : 'border-white/10 bg-[#090b0e] text-slate-400'
-              }`}
-            >
-              ON (Recommended)
-            </button>
-            <button
-              onClick={() => update({ keepOriginals: false })}
-              className={`flex-1 py-2.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
-                !settings.keepOriginals
-                  ? 'border-red-500 bg-red-500/10 text-white font-semibold'
-                  : 'border-white/10 bg-[#090b0e] text-slate-400'
-              }`}
-            >
-              OFF (JPG Only)
-            </button>
-          </div>
-        </div>
-
-        {/* Duplicate Behavior */}
-        <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-red-500" />
-            <h3 className="text-sm font-bold text-white">Duplicate File Policy</h3>
-          </div>
-          <p className="text-xs text-slate-400">
-            Action to take when a file with identical naming already exists in the client folder.
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: 'keep_both', label: 'KEEP BOTH' },
-              { val: 'replace', label: 'REPLACE' },
-              { val: 'skip', label: 'SKIP' },
-            ].map((opt) => (
-              <button
-                key={opt.val}
-                onClick={() => update({ duplicateBehavior: opt.val as any })}
-                className={`py-2.5 px-2 rounded-xl border text-center text-xs transition cursor-pointer ${
-                  settings.duplicateBehavior === opt.val
-                    ? 'border-red-500 bg-red-500/10 text-white font-semibold'
-                    : 'border-white/10 bg-[#090b0e] text-slate-400 hover:text-white'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          )}
         </div>
       </div>
 
@@ -287,9 +278,9 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">ElevenLabs Voice & Audio FIFO Engine</h3>
+              <h3 className="text-sm font-bold text-white">Jarvis Voice & Audio FIFO Engine</h3>
               <p className="text-xs text-slate-400">
-                Custom voice greetings, upload completion chimes, and sequential audio queue.
+                Custom voice greetings, upload completion chimes, and persistent MP3 caching.
               </p>
             </div>
           </div>
@@ -303,23 +294,115 @@ export const EngineSettings: React.FC<EngineSettingsProps> = ({
             <input
               type="password"
               placeholder="Paste xi-api-key here"
-              defaultValue={localStorage.getItem('ama_elevenlabs_api_key') || ''}
-              onChange={(e) => localStorage.setItem('ama_elevenlabs_api_key', e.target.value.trim())}
+              defaultValue={soundFIFO.getElevenLabsApiKey()}
+              onChange={(e) => soundFIFO.setElevenLabsApiKey(e.target.value.trim())}
               className="w-full bg-[#090b0e] border border-white/10 focus:border-red-500 rounded-xl p-2.5 text-xs text-white outline-none"
             />
           </div>
 
           <div>
             <label className="text-slate-400 block mb-1 text-xs font-medium">
-              Voice ID (e.g. 21m00Tcm4TlvDq8ikWAM)
+              Jarvis Male Voice Preset
+            </label>
+            <select
+              defaultValue={soundFIFO.getElevenLabsVoiceId()}
+              onChange={(e) => {
+                soundFIFO.setElevenLabsVoiceId(e.target.value);
+                const customInput = document.getElementById('custom-voice-id') as HTMLInputElement;
+                if (customInput) customInput.value = e.target.value;
+              }}
+              className="w-full bg-[#090b0e] border border-white/10 focus:border-red-500 rounded-xl p-2.5 text-xs text-white outline-none cursor-pointer"
+            >
+              {MALE_JARVIS_VOICES.map((v) => (
+                <option key={v.id} value={v.id} className="bg-[#11141c]">
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="text-slate-400 block mb-1 text-xs font-medium">
+              Active Voice ID
             </label>
             <input
+              id="custom-voice-id"
               type="text"
               placeholder="Voice ID"
-              defaultValue={localStorage.getItem('ama_elevenlabs_voice_id') || '21m00Tcm4TlvDq8ikWAM'}
-              onChange={(e) => localStorage.setItem('ama_elevenlabs_voice_id', e.target.value.trim())}
+              defaultValue={soundFIFO.getElevenLabsVoiceId()}
+              onChange={(e) => soundFIFO.setElevenLabsVoiceId(e.target.value.trim())}
               className="w-full bg-[#090b0e] border border-white/10 focus:border-red-500 rounded-xl p-2.5 text-xs text-white font-mono outline-none"
             />
+          </div>
+        </div>
+
+        <div className="pt-2 flex justify-end">
+          <button
+            onClick={() => {
+              soundFIFO.playWelcomeChime();
+              soundFIFO.speak(
+                'Good day. Jarvis system is active. Welcome to AMA Media Vault. Upload once, website ready.'
+              );
+            }}
+            className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-500/20 transition cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Test Jarvis Voice Output</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Image Optimization Rules */}
+      <div className="bg-[#11141c]/90 border border-white/10 rounded-3xl p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+            <Cpu className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Conversion & Compression Rules</h3>
+            <p className="text-xs text-slate-400">
+              Deterministic standards for website performance and Google PageSpeed metrics.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+          {/* Max Dimension */}
+          <div>
+            <label className="text-slate-300 block mb-1.5 text-xs font-semibold">
+              Max Dimension Edge: <span className="text-red-400">{settings.maxLongEdge}px</span>
+            </label>
+            <select
+              value={settings.maxLongEdge}
+              onChange={(e) => update({ maxLongEdge: parseInt(e.target.value, 10) })}
+              className="w-full bg-[#090b0e] border border-white/10 focus:border-red-500 rounded-xl p-3 text-xs text-white outline-none cursor-pointer"
+            >
+              <option value="1920">1920px (Desktop Full HD - Standard)</option>
+              <option value="2560">2560px (2K Retina Display)</option>
+              <option value="1280">1280px (Compact Mobile Web)</option>
+              <option value="3840">3840px (4K Ultra High-Res)</option>
+            </select>
+          </div>
+
+          {/* JPG Quality */}
+          <div>
+            <label className="text-slate-300 block mb-1.5 text-xs font-semibold">
+              JPG Compression Quality: <span className="text-red-400">{Math.round(settings.jpgQuality * 100)}%</span>
+            </label>
+            <input
+              type="range"
+              min="0.60"
+              max="0.95"
+              step="0.01"
+              value={settings.jpgQuality}
+              onChange={(e) => update({ jpgQuality: parseFloat(e.target.value) })}
+              className="w-full accent-red-600 cursor-pointer h-2 bg-[#090b0e] rounded-lg mt-2"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <span>60% (High compression)</span>
+              <span>82% (Ideal Balance)</span>
+              <span>95% (Near Lossless)</span>
+            </div>
           </div>
         </div>
       </div>

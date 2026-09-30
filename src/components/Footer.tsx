@@ -1,14 +1,12 @@
 import React from 'react';
-import { Flame, Shield, Heart } from 'lucide-react';
+import { AmaLogo } from './ui/AmaLogo';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="w-full border-t border-white/10 bg-[#07090c] py-12 px-4 sm:px-6 lg:px-8 mt-auto text-center relative z-10">
-      <div className="max-w-4xl mx-auto space-y-4">
-        <div className="flex items-center justify-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center">
-            <Flame className="w-4 h-4 fill-red-500" />
-          </div>
+    <footer className="w-full border-t border-white/10 bg-[#07090c] py-10 px-4 sm:px-6 lg:px-8 mt-auto text-center relative z-10">
+      <div className="max-w-4xl mx-auto space-y-3.5">
+        <div className="flex items-center justify-center gap-2.5">
+          <AmaLogo size={28} className="shadow-md shadow-red-500/20" />
           <span className="font-extrabold text-white tracking-widest text-sm font-display">
             AMA MEDIA VAULT
           </span>
@@ -22,7 +20,7 @@ export const Footer: React.FC = () => {
           “Do for Self. Then Do for Others.”
         </p>
 
-        <div className="pt-4 border-t border-white/5 text-[11px] text-slate-400 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="pt-3 border-t border-white/5 text-[11px] text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-4">
           <span>Private Bulk Media Upload & Website JPG Optimization</span>
           <span className="hidden sm:inline">•</span>
           <span>Google Drive Cloud Architecture</span>

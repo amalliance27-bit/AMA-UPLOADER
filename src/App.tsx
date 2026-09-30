@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar, AppView } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { CoverSplash } from './components/CoverSplash';
 import { SplashHero } from './components/SplashHero';
 import { ClientUploadPortal } from './components/ClientUploadPortal';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -23,13 +24,12 @@ import {
   initAuth,
   googleSignIn,
   logout,
-  getAccessToken,
-  getCurrentUser,
 } from './services/firebaseAuth';
 import { User } from 'firebase/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>('splash');
+  const [showCoverSplash, setShowCoverSplash] = useState(true);
+  const [currentView, setCurrentView] = useState<AppView>('client');
   const [settings, setSettings] = useState<VaultSettings>(getStoredSettings);
   const [clients, setClients] = useState<ClientProfile[]>(getStoredClients);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>(getStoredMediaFiles);
@@ -62,6 +62,7 @@ export default function App() {
       if (match) {
         setSelectedClient(match);
         setCurrentView('client');
+        setShowCoverSplash(false);
       }
     }
   }, [clients]);
@@ -187,6 +188,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#090b0e] text-slate-100 flex flex-col relative selection:bg-red-500/20 selection:text-red-200">
+      {/* 15-Second Black Cover Splash Overlay */}
+      {showCoverSplash && (
+        <CoverSplash
+          autoEnterSeconds={15}
+          onEnter={() => setShowCoverSplash(false)}
+        />
+      )}
+
       {/* Ambient background styling */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-gradient-to-b from-red-600/[0.04] via-blue-600/[0.02] to-transparent blur-3xl" />
@@ -196,7 +205,13 @@ export default function App() {
       {/* Navbar */}
       <Navbar
         currentView={currentView}
-        onSwitchView={setCurrentView}
+        onSwitchView={(view) => {
+          if (view === 'splash') {
+            setShowCoverSplash(true);
+          } else {
+            setCurrentView(view);
+          }
+        }}
         accessToken={accessToken}
         currentUserEmail={currentUser?.email}
         onGoogleSignIn={handleGoogleSignIn}
@@ -206,7 +221,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 w-full relative z-10 flex flex-col">
-        {currentView === 'splash' && (
+        {currentView === 'splash' && !showCoverSplash && (
           <SplashHero
             clients={clients}
             selectedClient={selectedClient}

@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Edit2,
   Sparkles,
+  HardDrive,
 } from 'lucide-react';
 import { ClientProfile } from '../types/vault';
 
@@ -185,13 +186,27 @@ export const ClientManager: React.FC<ClientManagerProps> = ({
               {/* Action Buttons */}
               <div className="space-y-2 pt-2 border-t border-white/5 text-xs">
                 {/* Launch client portal button */}
-                <button
-                  onClick={() => onOpenClientUpload(client)}
-                  className="w-full py-2.5 bg-white/10 hover:bg-white/15 text-white font-medium rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Open Client Upload Page</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => onOpenClientUpload(client)}
+                    className="py-2.5 bg-white/10 hover:bg-white/15 text-white font-medium rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Open Upload Portal"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Upload Portal</span>
+                  </button>
+
+                  <a
+                    href={`https://drive.google.com/drive/search?q=name%20contains%20%27${encodeURIComponent(client.name)}%27`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-medium rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Open in Google Drive"
+                  >
+                    <HardDrive className="w-3.5 h-3.5" />
+                    <span>Drive Folder</span>
+                  </a>
+                </div>
 
                 <div className="grid grid-cols-3 gap-1.5">
                   <button

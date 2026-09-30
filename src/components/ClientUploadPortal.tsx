@@ -15,11 +15,15 @@ import {
   Layers,
   HardDriveDownload,
   Flame,
+  Volume2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ClientProfile, MediaFile, VaultSettings } from '../types/vault';
 import { processImageFile, formatBytes } from '../services/imageProcessor';
 import { uploadBlobToDrive, setupClientFolderStructure } from '../services/googleDriveService';
+import { uploadBlobToGitHub, getStoredGitHubConfig } from '../services/githubService';
+import { AmaLogo } from './ui/AmaLogo';
+import { soundFIFO } from '../services/soundEngine';
 
 interface ClientUploadPortalProps {
   client: ClientProfile;
@@ -85,12 +89,20 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCancelledRef = useRef(false);
 
-  // Re-check pin lock if client changes
+  // Re-check pin lock if client changes & play lobby voice instructions
   useEffect(() => {
     setPinUnlocked(!client.accessCode);
     setPinEntered('');
     setPinError(false);
-  }, [client]);
+
+    // Play lobby welcome message (cached MP3 saves ElevenLabs tokens)
+    if (!client.accessCode || pinUnlocked) {
+      const timer = setTimeout(() => {
+        soundFIFO.playLobbyWelcome(client.name || 'Jeannie');
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [client.id, client.name]);
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +194,7 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
     if (isProcessing) return;
     setIsProcessing(true);
     isCancelledRef.current = false;
+    soundFIFO.playUploadStarted();
 
     // Optional: Pre-fetch or verify Drive folders if accessToken is present
     let driveFolders: any = null;
@@ -284,7 +297,27 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
           }
         }
 
-        // 3. Mark Completed
+        // 3. Push to GitHub if configured
+        const ghConfig = getStoredGitHubConfig();
+        if (ghConfig.token && ghConfig.repo) {
+          try {
+            updateItem({
+              stageText: 'Pushing to GitHub...',
+              progress: 90,
+            });
+            await uploadBlobToGitHub(result.convertedBlob, {
+              token: ghConfig.token,
+              repo: ghConfig.repo,
+              clientName: client.name,
+              fileName: result.cleanName,
+              branch: ghConfig.branch || 'main',
+            });
+          } catch (ghErr) {
+            console.warn('GitHub push note:', ghErr);
+          }
+        }
+
+        // 4. Mark Completed
         updateItem({
           status: 'complete',
           stageText: 'Complete',
@@ -368,6 +401,7 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
         setIsCompletedView(true);
 
         try {
+          soundFIFO.playAllTasksCompleted();
           confetti({
             particleCount: 75,
             spread: 60,
@@ -571,7 +605,7 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
       {/* Hero Header */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold tracking-wider uppercase">
-          <Flame className="w-3.5 h-3.5 text-red-500" />
+          <AmaLogo size={18} />
           <span>AMA Media Vault</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-display">
@@ -622,6 +656,14 @@ export const ClientUploadPortal: React.FC<ClientUploadPortalProps> = ({
               <span>Processing Ready</span>
             </div>
           )}
+          <button
+            onClick={() => soundFIFO.playLobbyWelcome(client.name || 'Jeannie')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-semibold transition cursor-pointer"
+            title="Hear Jarvis upload instructions"
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Audio Guide</span>
+          </button>
         </div>
       </div>
 

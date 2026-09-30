@@ -3,7 +3,6 @@ import { SplineScene } from './ui/splite';
 import { Spotlight } from './ui/spotlight';
 import { motion } from 'framer-motion';
 import {
-  Flame,
   ArrowRight,
   UploadCloud,
   LayoutDashboard,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ClientProfile } from '../types/vault';
 import { soundFIFO } from '../services/soundEngine';
+import { AmaLogo } from './ui/AmaLogo';
 
 interface SplashHeroProps {
   onEnterClient: (client?: ClientProfile) => void;
@@ -56,18 +56,20 @@ export const SplashHero: React.FC<SplashHeroProps> = ({
           />
         </div>
 
-        {/* Text & Action Controls - Centered and Borderless Header */}
+        {/* Text & Action Controls - Centered and Official Logo */}
         <div className="flex-1 p-6 sm:p-10 lg:p-12 relative z-10 flex flex-col justify-center items-center text-center">
           
-          {/* Centered Brand Title (No pill, No border) */}
+          {/* Centered Official AMA Logo Badge & Title */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center justify-center gap-2 text-red-400 text-xs sm:text-sm font-bold uppercase tracking-[0.25em] mb-3"
+            className="flex flex-col items-center justify-center gap-2.5 mb-4"
           >
-            <Flame className="w-4 h-4 text-red-500 fill-red-500" />
-            <span>ASK MORPHEUS ALLIANCE</span>
+            <AmaLogo size={56} animate className="shadow-2xl shadow-red-500/25 drop-shadow-lg" />
+            <span className="text-red-400 text-xs sm:text-sm font-bold uppercase tracking-[0.25em]">
+              ASK MORPHEUS ALLIANCE
+            </span>
           </motion.div>
 
           {/* Heading */}
@@ -77,7 +79,7 @@ export const SplashHero: React.FC<SplashHeroProps> = ({
             transition={{ duration: 0.6, delay: 0.1 }}
             className="space-y-1 sm:space-y-2 text-center"
           >
-            <p className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-slate-400 uppercase font-mono">
+            <p className="text-[10px] sm:text-xs font-bold tracking-[0.2em] text-slate-400 uppercase font-mono">
               WELCOME TO
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white font-display leading-[1.1]">
